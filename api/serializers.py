@@ -1,28 +1,38 @@
 from rest_framework import serializers
 from .models import *
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-class GetPromptSerializer(serializers.ModelSerializer):
+
+class TestKnowledgeSerializer(serializers.ModelSerializer):
+    prompt = serializers.CharField(style={'input_type': 'text'}, write_only=True)
     class Meta:
-        model = Prompt
         fields = ['prompt']
 
-    def save(request):
-        prompt = Prompt.objects.create(
-            prompt = request.data.prompt
-        )
-        prompt.save()
+class GetTopicsSerialiaer(serializers.ModelSerializer):
+    answers = serializers.CharField(max_length = 15, style={'input_type': 'text'}, write_only=True)
+    prompt = serializers.CharField(style={'input_type': 'text'}, write_only=True)
+
+    class Meta:
+        fields = ['answers', 'prompt']
+   
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'surname', 'email', 'is_student', 'is_mentor']
 
-class StudentSignupSerializer(serializers.ModelSerializer):
+class StudentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = ['birth_date']
 
+class StudentSignupSerializer(serializers.ModelSerializer):
+    birth_date = serializers.DateField(write_only=True)
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'password', 'password2', 'surname']
+        fields = ['first_name', 'last_name', 'email', 'password', 'password2', 'surname', 'birth_date']
         extra_kwargs = {'password': {'write_only': True}}
 
     def save(self, *args, **kwargs):
@@ -40,6 +50,11 @@ class StudentSignupSerializer(serializers.ModelSerializer):
         user.is_student = True
         user.is_active = True
         user.save()
+        student = Student.objects.create(
+            birth_date = self.validated_data['birth_date'],
+            user = user
+        )
+        student.save()
         return user
     
 class MentorSignupSerializer(serializers.ModelSerializer):
@@ -65,3 +80,16 @@ class MentorSignupSerializer(serializers.ModelSerializer):
         user.is_active = True
         user.save()
         return user
+    
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    remember = serializers.BooleanField(default=False)
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['first_name'] = user.first_name
+        token['last_name'] = user.last_name
+        token['email'] = user.email
+        token['is_mentor'] = user.is_mentor
+        token['is_student'] = user.is_student
+        return token

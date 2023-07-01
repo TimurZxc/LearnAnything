@@ -62,14 +62,48 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
         Token.objects.create(user=instance)
 
-class Prompt(models.Model):
-    prompt = models.TextField()
+class Student(models.Model):
+    user = models.OneToOneField(User, related_name='student', on_delete=models.CASCADE)
+    birth_date = models.DateField(null=True, blank=True)
+
+class Course(models.Model):
+    name = models.CharField(max_length=200)
+    student = models.ForeignKey(Student, related_name="course", on_delete=models.CASCADE)
 
 class Topic(models.Model):
     name = models.CharField(max_length=200)
     is_opened = models.BooleanField(default=False)
     is_finished = models.BooleanField(default=False)
-
+    course = models.ForeignKey(Course, related_name="topic", on_delete=models.CASCADE, null=True)
     def __str__(self):
         return str(self.name)
     
+class Video(models.Model):
+    link = models.URLField()
+    topic = models.ForeignKey(Topic, related_name="video", on_delete=models.CASCADE)
+
+class Source(models.Model):
+    link = models.URLField()
+    topic = models.ForeignKey(Topic, related_name="source", on_delete=models.CASCADE)
+
+class Quiz(models.Model):
+    topic = models.ForeignKey(Topic, related_name="quiz", on_delete=models.CASCADE)
+
+class Question(models.Model):
+    body = models.TextField()
+    option_1 = models.TextField()
+    option_2 = models.TextField()
+    option_3 = models.TextField()
+    option_4 = models.TextField()
+    correct = models.CharField(max_length=10)
+    quiz = models.ForeignKey(Quiz, related_name="question", on_delete=models.CASCADE)
+
+class Test(models.Model):
+    user = models.ForeignKey(User, related_name="test", on_delete=models.CASCADE, null=True)
+    course = models.ForeignKey(Course, related_name="course", on_delete=models.CASCADE, null=True) 
+    question = models.TextField()
+    option_1 = models.TextField()
+    option_2 = models.TextField()
+    option_3 = models.TextField()
+    option_4 = models.TextField()
+    correct = models.CharField(max_length=100)
