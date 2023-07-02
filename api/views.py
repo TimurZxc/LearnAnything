@@ -11,7 +11,7 @@ from django.db.models import Q
 from .youtube import *
 
 # Load your API key from an environment variable or secret management service
-openai.api_key = "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"
+openai.api_key = "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"
 
 
 class TestKnowledgeView(generics.GenericAPIView):
@@ -99,7 +99,16 @@ class GetTopicsView(generics.GenericAPIView):
                 variants=question["variants"],
                 correct=question["correct"]
             )
-        return Response(topic_quiz_responcse, status=status.HTTP_200_OK)
+        
+        prompt_task = 'Create an individual practice task for topic  "' + course_name + ': ' + first.name + '". It has to be not just simple question with one answers, it should be real practice homework that will check by mentor.Respomse must to be in followimg template \{\"task\": \"your_taskt_description_here\"\}. Send me ONLY JSON file, dont greet me or anything that not relevant to the response that I need.'
+        generation_task_data = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt_task}])
+        topic_task_responcse = json.loads(generation_task_data["choices"][0]["message"]["content"])
+
+        Task.objects.create(topic=first, body = topic_task_responcse['task'])
+
+
+        return Response(topic_task_responcse, status=status.HTTP_200_OK)
 
 
 class StudentSignupView(generics.CreateAPIView):
@@ -142,9 +151,16 @@ class GetDataView(generics.ListAPIView):
 
     def get(self, *args, **kwargs):
         user = User.objects.filter(id=self.request.user.id)
-        # courses = Course.objects.filter(student=student)
         serializer = self.serializer_class(user, many=True)
-        return Response(serializer.data)
+
+        # Sort topics by ID
+        serializer_data = serializer.data
+        if 'student' in serializer_data[0]:
+            courses = serializer_data[0]['student']['course']
+            for course in courses:
+                course['topic'] = sorted(course['topic'], key=lambda x: x['id'])
+
+        return Response(serializer_data)
     
     def post(self, request, *args, **kwargs):
         user = User.objects.filter(email=request.data.get('email'))
@@ -157,7 +173,8 @@ class FinishQuizView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         answers = request.data.get('answers')
-        topic = Topic.objects.filter(is_opened = True).last()
+        topic = Topic.objects.get(id=request.data.get('topic_id'))
+        # topic = Topic.objects.filter(is_opened = True).last()
         quiz = Quiz.objects.get(topic=topic)
         questions = Question.objects.filter(quiz=quiz)
         topic_next = Topic.objects.get(id=topic.id + 1)
@@ -172,8 +189,10 @@ class FinishQuizView(generics.GenericAPIView):
             if helper[answers[question.id - 1]] == question.correct:
                 correct += 1
         if (correct*100)/len(questions) >= 70:
+            topic.is_finished = True
             topic_next.is_opened = True
             topic_next.save()
+            topic.save()
             course = Course.objects.get(id=topic.course.id)
 
             prompt_for_topic_data = 'Provide me three actual article sources for learning "' + course.name + ':'+ topic_next.name + '". It has to be in JSON format: {\{"1": "source_url1", "2": "source_url2", "3": "source_url3"}\}. Your response must be only JSON, without any greetings, etc.'
@@ -203,5 +222,20 @@ class FinishQuizView(generics.GenericAPIView):
             return Response({"message": "Topic Completed Successfully",},status=status.HTTP_200_OK)
         else:
             return Response({"message": "Topic Failed",},status=status.HTTP_200_OK)
+        
 
+
+
+class GetQuizDataView(generics.ListAPIView):
+    # permission_classes = [permissions.IsAuthenticated & IsStudentUser]
+    serializer_class = QuizSerializer
+
+    def post(self, request, *args, **kwargs):
+        topic_id = request.data.get('topic_id')
+        topic = Topic.objects.get(id=topic_id)
+        quiz = Quiz.objects.get(topic=topic)
+        serializer = self.serializer_class(quiz, many=False)
+        print(serializer.data)
+        return Response(serializer.data)
+    
         

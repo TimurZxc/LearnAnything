@@ -19,22 +19,39 @@ class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id','title', 'variants', 'correct']
+    def get_queryset(self):
+        queryset = Question.objects.all().order_by('id')
+        return queryset
+
 
 class QuizSerializer(serializers.ModelSerializer):
     question = QuestionSerializer(many=True)
     class Meta:
         model = Quiz
         fields = ['id','question']
+    def get_queryset(self):
+        queryset = Quiz.objects.all().order_by('id')
+        return queryset
+
+    
 
 class SourceLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Source
         fields = ['id','link']
+    def get_queryset(self):
+        queryset = Source.objects.all().order_by('id')
+        return queryset
+
 
 class VideoLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Video
         fields = ['id','link']
+    def get_queryset(self):
+        queryset = Video.objects.all().order_by('id')
+        return queryset
+
 
 class TopicSerializer(serializers.ModelSerializer):
     video = VideoLinkSerializer(many=True)
@@ -43,24 +60,37 @@ class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
         fields = ['id','name', 'is_opened', 'is_finished','video','source','quiz']
+    def get_queryset(self):
+        queryset = Topic.objects.all().order_by('id')
+        return queryset
 
 class CoursesSerializer(serializers.ModelSerializer):
     topic = TopicSerializer(many=True)
     class Meta:
         model = Course
         fields = ['id','name', 'student', 'topic']
+    def get_queryset(self):
+        queryset = Course.objects.all().order_by('id')
+        return queryset
         
 class StudentSerializer(serializers.ModelSerializer):
     course = CoursesSerializer(many=True)
     class Meta:
         model = Student
         fields = ['id','birth_date', 'course']
+    def get_queryset(self):
+        queryset = Student.objects.all().order_by('id')
+        return queryset
 
 class UserSerializer(serializers.ModelSerializer):
+    
     student = StudentSerializer(many=False)
     class Meta:
         model = User
         fields = ['id','first_name', 'last_name', 'surname', 'email', 'is_student', 'is_mentor', 'student']
+    def get_queryset(self):
+        queryset = User.objects.all().order_by('id')
+        return queryset
 
 class StudentSignupSerializer(serializers.ModelSerializer):
     birth_date = serializers.DateField(write_only=True)

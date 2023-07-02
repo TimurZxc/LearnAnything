@@ -104,3 +104,8 @@ class Test(models.Model):
     title = models.TextField()
     variants = models.TextField()
     correct = models.IntegerField()
+
+
+class Task(models.Model):
+    topic = models.ForeignKey(Topic, related_name="task", on_delete=models.CASCADE)
+    body = models.TextField()

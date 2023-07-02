@@ -14,4 +14,5 @@ urlpatterns = [
     path('test/', TestKnowledgeView.as_view()),
     path('data/', GetDataView.as_view()),
     path('finish/quiz/', FinishQuizView.as_view()),
+    path('quiz-data/', GetQuizDataView.as_view()),
 ]
