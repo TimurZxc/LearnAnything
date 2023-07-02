@@ -14,18 +14,53 @@ class GetTopicsSerialiaer(serializers.ModelSerializer):
 
     class Meta:
         fields = ['answers', 'prompt']
-   
 
-
-class UserSerializer(serializers.ModelSerializer):
+class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
-        fields = ['first_name', 'last_name', 'surname', 'email', 'is_student', 'is_mentor']
+        model = Question
+        fields = ['title', 'variants', 'correct']
 
+class QuizSerializer(serializers.ModelSerializer):
+    question = QuestionSerializer(many=True)
+    class Meta:
+        model = Quiz
+        fields = ['question']
+
+class SourceLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Source
+        fields = ['link']
+
+class VideoLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Video
+        fields = ['link']
+
+class TopicSerializer(serializers.ModelSerializer):
+    video = VideoLinkSerializer(many=True)
+    source = SourceLinkSerializer(many=True)
+    quiz = QuizSerializer(many=True)
+    class Meta:
+        model = Topic
+        fields = ['name', 'is_opened', 'is_finished','video','source','quiz']
+
+class CoursesSerializer(serializers.ModelSerializer):
+    topic = TopicSerializer(many=True)
+    class Meta:
+        model = Course
+        fields = ['name', 'student', 'topic']
+        
 class StudentSerializer(serializers.ModelSerializer):
+    course = CoursesSerializer(many=True)
     class Meta:
         model = Student
-        fields = ['birth_date']
+        fields = ['birth_date', 'course']
+
+class UserSerializer(serializers.ModelSerializer):
+    student = StudentSerializer(many=False)
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'surname', 'email', 'is_student', 'is_mentor', 'student']
 
 class StudentSignupSerializer(serializers.ModelSerializer):
     birth_date = serializers.DateField(write_only=True)
@@ -93,3 +128,16 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['is_mentor'] = user.is_mentor
         token['is_student'] = user.is_student
         return token
+    
+class FinishTopicSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(style={'input_type': 'text'}, write_only=True)
+    class Meta:
+        model = Topic
+        fields = ['name']
+
+class FinishQuizSerializer(serializers.ModelSerializer):
+    answers = serializers.CharField(style={'input_type': 'text'}, write_only=True)
+    class Meta:
+        model = Quiz
+        fields = ['answers']
+
