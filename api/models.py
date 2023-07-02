@@ -67,7 +67,7 @@ class Student(models.Model):
     birth_date = models.DateField(null=True, blank=True)
 
 class Course(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
     student = models.ForeignKey(Student, related_name="course", on_delete=models.CASCADE)
 
 class Topic(models.Model):
@@ -90,20 +90,14 @@ class Quiz(models.Model):
     topic = models.ForeignKey(Topic, related_name="quiz", on_delete=models.CASCADE)
 
 class Question(models.Model):
-    body = models.TextField()
-    option_1 = models.TextField()
-    option_2 = models.TextField()
-    option_3 = models.TextField()
-    option_4 = models.TextField()
-    correct = models.CharField(max_length=10)
+    title = models.TextField()
+    variants = models.TextField()
+    correct = models.IntegerField()
     quiz = models.ForeignKey(Quiz, related_name="question", on_delete=models.CASCADE)
 
 class Test(models.Model):
     user = models.ForeignKey(User, related_name="test", on_delete=models.CASCADE, null=True)
     course = models.ForeignKey(Course, related_name="course", on_delete=models.CASCADE, null=True) 
-    question = models.TextField()
-    option_1 = models.TextField()
-    option_2 = models.TextField()
-    option_3 = models.TextField()
-    option_4 = models.TextField()
-    correct = models.CharField(max_length=100)
+    title = models.TextField()
+    variants = models.TextField()
+    correct = models.IntegerField()

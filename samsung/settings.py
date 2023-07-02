@@ -41,7 +41,10 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'samsung.urls'
 CORS_ORIGIN_WHITELIST = [
-    'http://192.168.0.13:3000',
+    'http://192.168.8.44:3000',
+    'http://192.168.8.44:3001',
+    'http://localhost:3000',
+    'http://localhost:3001',
 ] 
 APPEND_SLASH = False
 TEMPLATES = [
