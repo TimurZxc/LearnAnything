@@ -66,8 +66,11 @@ class Student(models.Model):
     user = models.OneToOneField(User, related_name='student', on_delete=models.CASCADE)
     birth_date = models.DateField(null=True, blank=True)
 
+class Mentor(models.Model):
+    user = models.OneToOneField(User, related_name='mentor', on_delete=models.CASCADE)
+
 class Course(models.Model):
-    name = models.CharField(max_length=200, unique=True)
+    name = models.CharField(max_length=200)
     student = models.ForeignKey(Student, related_name="course", on_delete=models.CASCADE)
 
 class Topic(models.Model):

@@ -11,7 +11,7 @@ from django.db.models import Q
 from .youtube import *
 
 # Load your API key from an environment variable or secret management service
-openai.api_key = "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"
+openai.api_key = "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"
 
 
 class TestKnowledgeView(generics.GenericAPIView):
@@ -137,12 +137,17 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
 
 class GetDataView(generics.ListAPIView):
-    permission_classes = [permissions.IsAuthenticated & IsStudentUser]
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserSerializer
 
     def get(self, *args, **kwargs):
         user = User.objects.filter(id=self.request.user.id)
         # courses = Course.objects.filter(student=student)
+        serializer = self.serializer_class(user, many=True)
+        return Response(serializer.data)
+    
+    def post(self, request, *args, **kwargs):
+        user = User.objects.filter(email=request.data.get('email'))
         serializer = self.serializer_class(user, many=True)
         return Response(serializer.data)
 

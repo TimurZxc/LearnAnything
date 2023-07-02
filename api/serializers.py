@@ -18,23 +18,23 @@ class GetTopicsSerialiaer(serializers.ModelSerializer):
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
-        fields = ['title', 'variants', 'correct']
+        fields = ['id','title', 'variants', 'correct']
 
 class QuizSerializer(serializers.ModelSerializer):
     question = QuestionSerializer(many=True)
     class Meta:
         model = Quiz
-        fields = ['question']
+        fields = ['id','question']
 
 class SourceLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Source
-        fields = ['link']
+        fields = ['id','link']
 
 class VideoLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Video
-        fields = ['link']
+        fields = ['id','link']
 
 class TopicSerializer(serializers.ModelSerializer):
     video = VideoLinkSerializer(many=True)
@@ -42,25 +42,25 @@ class TopicSerializer(serializers.ModelSerializer):
     quiz = QuizSerializer(many=True)
     class Meta:
         model = Topic
-        fields = ['name', 'is_opened', 'is_finished','video','source','quiz']
+        fields = ['id','name', 'is_opened', 'is_finished','video','source','quiz']
 
 class CoursesSerializer(serializers.ModelSerializer):
     topic = TopicSerializer(many=True)
     class Meta:
         model = Course
-        fields = ['name', 'student', 'topic']
+        fields = ['id','name', 'student', 'topic']
         
 class StudentSerializer(serializers.ModelSerializer):
     course = CoursesSerializer(many=True)
     class Meta:
         model = Student
-        fields = ['birth_date', 'course']
+        fields = ['id','birth_date', 'course']
 
 class UserSerializer(serializers.ModelSerializer):
     student = StudentSerializer(many=False)
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'surname', 'email', 'is_student', 'is_mentor', 'student']
+        fields = ['id','first_name', 'last_name', 'surname', 'email', 'is_student', 'is_mentor', 'student']
 
 class StudentSignupSerializer(serializers.ModelSerializer):
     birth_date = serializers.DateField(write_only=True)
@@ -114,6 +114,10 @@ class MentorSignupSerializer(serializers.ModelSerializer):
         user.is_mentor = True
         user.is_active = True
         user.save()
+        mentor = Mentor.objects.create(
+            user=user
+        )
+        mentor.save()
         return user
     
 
