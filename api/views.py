@@ -11,7 +11,7 @@ from django.db.models import Q
 from .youtube import *
 
 # Load your API key from an environment variable or secret management service
-openai.api_key = "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"
+openai.api_key = "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"
 
 
 class TestKnowledgeView(generics.GenericAPIView):
@@ -26,9 +26,26 @@ class TestKnowledgeView(generics.GenericAPIView):
             name=course_name,
             student=student
         )
-        prompt = "Create a test with 15 questions on the topic: %s. Each question have to be with 4 options and 1 correct answer. Test must be in the following format: [{\"title\": \"question itself\",\"variants\": [\"option 1\", \"option 2\", \"option 3\", \"option 4\"], \"correct\": index of the correct answer from variants list an int,},]. Make sure, that all keys and values enclosed in \" list must consist of 15 entities  and arrange every question in the same format" % course_name
+        prompt = course_name
+        # prompt = "Create a test with 15 questions on the topic: %s. Each question have to be with 4 options and 1 correct answer. Test must be in the following format: [{\"title\": \"question itself\",\"variants\": [\"option 1\", \"option 2\", \"option 3\", \"option 4\"], \"correct\": index of the correct answer from variants list an int,},]. Make sure, that all keys and values enclosed in \" list must consist of 15 entities  and arrange every question in the same format" % course_name
         chat_completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt}])
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a quiz generator. You need to generate quiz with 15 questions. Each question have to be with 4 options and 1 correct answer. Quiz must be in the following format: [{\"title\": \"question itself\",\"variants\": [\"option 1\", \"option 2\", \"option 3\", \"option 4\"], \"correct\": index of the correct answer from variants list an int,},]. Make sure, that all keys and values enclosed in \" list must consist of 15 entities  and arrange every question in the same format"
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=1,
+            max_tokens=2048,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
         response = json.loads(
             chat_completion["choices"][0]["message"]["content"])
         if Test.objects.filter(user=request.user).exists():
@@ -65,32 +82,92 @@ class GetTopicsView(generics.GenericAPIView):
             }
             form_data.update({f"question {i.id}": i.title})
             form_data.update({f"answer {i.id}": helper[answers[index]]})
-        prompt_for_topics = f"break down {course} learning into step-by-step topics based on the results of this test: {form_data}, starting with easy concepts and moving on to more complex ones. Generate a json list of topics in the following format: \"1\": \"Topic 1\",\"2\": \"topic 2\",\"3\": \"Topic 3\", and so on.  Where the number is the key and the topic name is the value. Make sure the list contains at least 25 topics. We will need to parse this json. Your response must be only JSON, without any greetings etc."
+        prompt_for_topics = f'subject:{course}, test:{form_data}.'
+        # prompt_for_topics = f"break down {course} learning into step-by-step topics based on the results of this test: {form_data}, starting with easy concepts and moving on to more complex ones. Generate a json list of topics in the following format: \"1\": \"Topic 1\",\"2\": \"topic 2\",\"3\": \"Topic 3\", and so on.  Where the number is the key and the topic name is the value. Make sure the list contains at least 25 topics. We will need to parse this json. Your response must be only JSON, without any greetings etc."
         chat_completion = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt_for_topics}])
-        response = json.loads(chat_completion["choices"][0]["message"]["content"])
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a detailed course generator in JSON format with key as a number and value as a topic. break down subject learning into step-by-step topics based on the results of presented test. starting with easy concepts and moving on to more complex ones. Generate a json list of topics in the following format: \"1\": \"Topic 1\",\"2\": \"topic 2\",\"3\": \"Topic 3\", and so on.  Where the number is the key and the topic name is the value. Make sure the list contains at least 25 topics. We will need to parse this json."
+                },
+                {
+                    "role": "user",
+                    "content": prompt_for_topics
+                }
+            ],
+            temperature=1,
+            max_tokens=2048,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+
+        response = json.loads(
+            chat_completion["choices"][0]["message"]["content"])
         for topic in response:
             Topic.objects.create(name=response[topic], course=course)
         first = Topic.objects.filter(course=course).first()
         first.is_opened = True
         first.save()
 
-        prompt_for_topic_data = 'Provide me three actual article sources for learning "' + course_name + ':'+ first.name + '". It has to be in JSON format: {\{"1": "source_url1", "2": "source_url2", "3": "source_url3"}\}. Your response must be only JSON, without any greetings, etc.'
-        
-        video_ids = get_videos(search_query=f"{course_name}: {first.name} tutorials")
+        prompt_for_topic_data = f'{course_name} : {first.name} sources'
+
+        video_ids = get_videos(
+            search_query=f"{course_name}: {first.name} tutorials")
 
         generation_topic_data = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt_for_topic_data}])
-        topic_data_response = json.loads(generation_topic_data["choices"][0]["message"]["content"])
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are {course_name} professor. Provide me three actual article sources for learning {course_name} : {first.name} . It has to be in JSON format: "+"{'1': 'source_url1', '2': 'source_url2', '3': 'source_url3'}"
+                },
+                {
+                    "role": "user",
+                    "content": prompt_for_topic_data
+                }
+            ],
+            temperature=1,
+            max_tokens=2048,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+        topic_data_response = json.loads(
+            generation_topic_data["choices"][0]["message"]["content"])
         for i, video in enumerate(video_ids, start=1):
             link = "https://www.youtube.com/embed/" + video
             Video.objects.create(link=link, topic=first)
-            Source.objects.create(link=topic_data_response[str(i)], topic=first)
+            Source.objects.create(
+                link=topic_data_response[str(i)], topic=first)
 
-        prompt_for_topic_quiz = 'Create test with range of questions 10 - 20, with this topic: "' + course_name + ':'+ first.name + '". Each question have to be with 4 options and 1 correct answer. This test must be in JSON format:  [{\"title\": \"question itself\",\"variants\": [\"option 1\", \"option 2\", \"option 3\", \"option 4\"], \"correct\": index of the correct answer from variants list an int,},] list must consist of 15 entities  and arrange every question in the same format"'
+        prompt_for_topic_quiz = f'{course_name} : {first.name}'
         generation_quiz_data = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt_for_topic_quiz}])
-        topic_quiz_responcse = json.loads(generation_quiz_data["choices"][0]["message"]["content"])
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are a {course_name} professor. Create test with range of questions 10 - 20, \
+                        with this topic: {course_name} : {first.name}. Each question have to be with 4 options and\
+                              1 correct answer. This test must be in JSON format:" +
+                    '[{\"title\": \"question itself\", \"variants\": [\"option 1\", \"option 2\", \
+                                      \"option 3\", \"option 4\"], \"correct\": index of the correct answer from \
+                                        variants list an int,},] arrange every question in the same format"'
+                },
+                {
+                    "role": "user",
+                    "content": prompt_for_topic_quiz
+                }
+            ],
+            temperature=1,
+            max_tokens=2048,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+        topic_quiz_responcse = json.loads(
+            generation_quiz_data["choices"][0]["message"]["content"])
         quiz = Quiz.objects.create(topic=first)
         for question in topic_quiz_responcse:
             Question.objects.create(
@@ -99,14 +176,30 @@ class GetTopicsView(generics.GenericAPIView):
                 variants=question["variants"],
                 correct=question["correct"]
             )
-        
-        prompt_task = 'Create an individual practice task for topic  "' + course_name + ': ' + first.name + '". It has to be not just simple question with one answers, it should be real practice homework that will check by mentor.Respomse must to be in followimg template \{\"task\": \"your_taskt_description_here\"\}. Send me ONLY JSON file, dont greet me or anything that not relevant to the response that I need.'
+
+        prompt_task = f'{course_name} : {first.name}'
         generation_task_data = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt_task}])
-        topic_task_responcse = json.loads(generation_task_data["choices"][0]["message"]["content"])
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are a {course_name} professor. Create an individual practice task for topic  {course_name} : {first.name} . It has to be not just simple question with one answers, it should be real practice homework that will check by mentor.Respomse must to be in followimg template "+"{\"task\": \"your_taskt_description_here\"\}. Send me ONLY JSON file."
+                },
+                {
+                    "role": "user",
+                    "content": prompt_task
+                }
+            ],
+            temperature=1,
+            max_tokens=2048,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+        topic_task_responcse = json.loads(
+            generation_task_data["choices"][0]["message"]["content"])
 
-        Task.objects.create(topic=first, body = topic_task_responcse['task'])
-
+        Task.objects.create(topic=first, body=topic_task_responcse['task'])
 
         return Response(topic_task_responcse, status=status.HTTP_200_OK)
 
@@ -158,14 +251,16 @@ class GetDataView(generics.ListAPIView):
         if 'student' in serializer_data[0]:
             courses = serializer_data[0]['student']['course']
             for course in courses:
-                course['topic'] = sorted(course['topic'], key=lambda x: x['id'])
+                course['topic'] = sorted(
+                    course['topic'], key=lambda x: x['id'])
 
         return Response(serializer_data)
-    
+
     def post(self, request, *args, **kwargs):
         user = User.objects.filter(email=request.data.get('email'))
         serializer = self.serializer_class(user, many=True)
         return Response(serializer.data)
+
 
 class FinishQuizView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated & IsStudentUser]
@@ -180,10 +275,10 @@ class FinishQuizView(generics.GenericAPIView):
         topic_next = Topic.objects.get(id=topic.id + 1)
         correct = 0
         helper = {
-            "a":0,
-            "b":1,
-            "c":2,
-            "d":3
+            "a": 0,
+            "b": 1,
+            "c": 2,
+            "d": 3
         }
         for question in questions:
             if helper[answers[question.id - 1]] == question.correct:
@@ -195,21 +290,62 @@ class FinishQuizView(generics.GenericAPIView):
             topic.save()
             course = Course.objects.get(id=topic.course.id)
 
-            prompt_for_topic_data = 'Provide me three actual article sources for learning "' + course.name + ':'+ topic_next.name + '". It has to be in JSON format: {\{"1": "source_url1", "2": "source_url2", "3": "source_url3"}\}. Your response must be only JSON, without any greetings, etc.'
-            video_ids = get_videos(search_query=f"{course.name}: {topic_next.name} tutorials")
+            prompt_for_topic_data = f'{course.name} : {topic_next.name} sources'
+            video_ids = get_videos(
+                search_query=f"{course.name}: {topic_next.name} tutorials")
             generation_topic_data = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt_for_topic_data}])
-            topic_data_response = json.loads(generation_topic_data["choices"][0]["message"]["content"])
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"You are {course.name} professor. Provide me three actual article sources for learning {course.name} : {topic_next.name} . It has to be in JSON format: "+"{'1': 'source_url1', '2': 'source_url2', '3': 'source_url3'}"
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt_for_topic_data
+                    }
+                ],
+                temperature=1,
+                max_tokens=2048,
+                top_p=1,
+                frequency_penalty=0,
+                presence_penalty=0
+            )
+            topic_data_response = json.loads(
+                generation_topic_data["choices"][0]["message"]["content"])
 
             for i, video in enumerate(video_ids, start=1):
                 link = "https://www.youtube.com/embed/" + video
                 Video.objects.create(link=link, topic=topic_next)
-                Source.objects.create(link=topic_data_response[str(i)], topic=topic_next)
+                Source.objects.create(
+                    link=topic_data_response[str(i)], topic=topic_next)
 
-            prompt_for_topic_quiz = 'Create test with range of questions 10 - 20, with this topic: "' + course.name + ':'+ topic_next.name + '". Each question have to be with 4 options and 1 correct answer. This test must be in JSON format:  [{\"title\": \"question itself\",\"variants\": [\"option 1\", \"option 2\", \"option 3\", \"option 4\"], \"correct\": index of the correct answer from variants list an int,},] list must consist of 15 entities  and arrange every question in the same format"'
+            prompt_for_topic_quiz = f'{course.name} : {topic_next.name}'
             generation_quiz_data = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo", messages=[{"role": "system", "content": prompt_for_topic_quiz}])
-            topic_quiz_responcse = json.loads(generation_quiz_data["choices"][0]["message"]["content"])
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": f"You are a {course.name} professor. Create test with range of questions 10 - 20, \
+                            with this topic: {course.name} : {topic_next.name}. Each question have to be with 4 options and\
+                                1 correct answer. This test must be in JSON format:" +
+                        '[{\"title\": \"question itself\", \"variants\": [\"option 1\", \"option 2\", \
+                                        \"option 3\", \"option 4\"], \"correct\": index of the correct answer from \
+                                            variants list an int,},] arrange every question in the same format"'
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt_for_topic_quiz
+                    }
+                ],
+                temperature=1,
+                max_tokens=2048,
+                top_p=1,
+                frequency_penalty=0,
+                presence_penalty=0
+            )
+            topic_quiz_responcse = json.loads(
+                generation_quiz_data["choices"][0]["message"]["content"])
             quiz = Quiz.objects.create(topic=topic_next)
             for question in topic_quiz_responcse:
                 Question.objects.create(
@@ -219,11 +355,9 @@ class FinishQuizView(generics.GenericAPIView):
                     correct=question["correct"]
                 )
 
-            return Response({"message": "Topic Completed Successfully",},status=status.HTTP_200_OK)
+            return Response({"message": "Topic Completed Successfully", }, status=status.HTTP_200_OK)
         else:
-            return Response({"message": "Topic Failed",},status=status.HTTP_200_OK)
-        
-
+            return Response({"message": "Topic Failed", }, status=status.HTTP_200_OK)
 
 
 class GetQuizDataView(generics.ListAPIView):
@@ -237,5 +371,3 @@ class GetQuizDataView(generics.ListAPIView):
         serializer = self.serializer_class(quiz, many=False)
         print(serializer.data)
         return Response(serializer.data)
-    
-        
